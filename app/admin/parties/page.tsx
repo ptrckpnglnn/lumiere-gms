@@ -9,7 +9,6 @@ type Member = {
   ign: string;
   class: string;
   role: string;
-  status: string;
 };
 
 type Party = {
@@ -22,7 +21,12 @@ type Party = {
 
 const PARTY_SIZE = 5;
 
-// Class → role bucket
+const ALL_CLASSES = [
+  "Lord Knight", "Paladin", "High Wizard", "Professor", "Sniper",
+  "Minstrel", "Gypsy", "High Priest", "Champion", "Mastersmith",
+  "Biochemist", "Assassin Cross", "Stalker", "Summoner",
+];
+
 const SUPPORT_CLASSES = ["High Priest", "Professor", "Minstrel", "Gypsy"];
 const TANK_CLASSES    = ["Lord Knight", "Paladin", "Champion"];
 const HEALER_CLASSES  = ["High Priest"];
@@ -32,10 +36,10 @@ const DPS_CLASSES     = [
 ];
 
 function classColor(cls: string): string {
-  if (HEALER_CLASSES.includes(cls))  return "#34d399"; // green
-  if (["Professor", "Minstrel", "Gypsy"].includes(cls)) return "#a78bfa"; // purple
-  if (TANK_CLASSES.includes(cls))    return "#60a5fa"; // blue
-  if (DPS_CLASSES.includes(cls))     return "#fbbf24"; // amber
+  if (HEALER_CLASSES.includes(cls)) return "#34d399";
+  if (["Professor", "Minstrel", "Gypsy"].includes(cls)) return "#a78bfa";
+  if (TANK_CLASSES.includes(cls)) return "#60a5fa";
+  if (DPS_CLASSES.includes(cls)) return "#fbbf24";
   return "#94a3b8";
 }
 
@@ -50,42 +54,28 @@ function classIcon(cls: string): string {
   return map[cls] || "⚔️";
 }
 
-// ── WARNINGS ───────────────────────────────────────────
 function getWarnings(party: Party, members: Member[]): string[] {
-  const warnings: string[] = [];
-  const partyMembers = party.member_ids
+  const pm = party.member_ids
     .map((id) => members.find((m) => m.id === id))
     .filter(Boolean) as Member[];
-
-  if (partyMembers.length === 0) return [];
-
-  const hasHealer  = partyMembers.some((m) => HEALER_CLASSES.includes(m.class));
-  const hasSupport = partyMembers.some((m) => SUPPORT_CLASSES.includes(m.class));
-  const hasTank    = partyMembers.some((m) => TANK_CLASSES.includes(m.class));
-  const hasDPS     = partyMembers.some((m) => DPS_CLASSES.includes(m.class));
-  const hasCommander = !!party.commander_id;
-
-  if (!hasHealer)    warnings.push("No Healer");
-  if (!hasSupport)   warnings.push("No Support");
-  if (!hasTank)      warnings.push("No Tank");
-  if (!hasDPS)       warnings.push("No DPS");
-  if (!hasCommander) warnings.push("No Commander");
-
-  const supportCount = partyMembers.filter((m) => SUPPORT_CLASSES.includes(m.class)).length;
-  if (supportCount > 2) warnings.push("Too many Supports");
-
+  if (pm.length === 0) return [];
+  const warnings: string[] = [];
+  if (!pm.some((m) => HEALER_CLASSES.includes(m.class)))  warnings.push("No Healer");
+  if (!pm.some((m) => SUPPORT_CLASSES.includes(m.class))) warnings.push("No Support");
+  if (!pm.some((m) => TANK_CLASSES.includes(m.class)))    warnings.push("No Tank");
+  if (!pm.some((m) => DPS_CLASSES.includes(m.class)))     warnings.push("No DPS");
+  if (!party.commander_id)                                 warnings.push("No Commander");
+  if (pm.filter((m) => SUPPORT_CLASSES.includes(m.class)).length > 2)
+    warnings.push("Too many Supports");
   return warnings;
 }
 
-// ── SUPABASE HELPERS ────────────────────────────────────
 async function saveParty(party: Party) {
-  const { error } = await supabase.from("parties").upsert({
-    id: party.id,
-    name: party.name,
-    roster_type: party.roster_type,
-    commander_id: party.commander_id,
-    member_ids: party.member_ids,
-  }, { onConflict: "id" });
+  const { error } = await supabase.from("parties").upsert(
+    { id: party.id, name: party.name, roster_type: party.roster_type,
+      commander_id: party.commander_id, member_ids: party.member_ids },
+    { onConflict: "id" }
+  );
   if (error) throw error;
 }
 
@@ -94,17 +84,23 @@ async function deletePartyFromDB(id: string) {
   if (error) throw error;
 }
 
-// ── MAIN COMPONENT ─────────────────────────────────────
+async function syncMemberRole(memberId: string, role: "Main" | "Sub") {
+  const { error } = await supabase
+    .from("members")
+    .update({ role })
+    .eq("id", memberId);
+  if (error) throw error;
+}
 export default function PartyPage() {
-  const [members, setMembers]     = useState<Member[]>([]);
-  const [parties, setParties]     = useState<Party[]>([]);
-  const [tab, setTab]             = useState<"Main" | "Sub">("Main");
-  const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState<string | null>(null);
+  const [members,  setMembers]  = useState<Member[]>([]);
+  const [parties,  setParties]  = useState<Party[]>([]);
+  const [tab,      setTab]      = useState<"Main" | "Sub">("Main");
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState<string | null>(null);
+  const [poolFilter, setPoolFilter] = useState("All");
 
-  // drag state
-  const dragMember  = useRef<string | null>(null);
-  const dragSource  = useRef<string | null>(null); // party id or "pool"
+  const dragMember = useRef<string | null>(null);
+  const dragSource = useRef<string | null>(null);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -147,8 +143,8 @@ export default function PartyPage() {
   async function renameParty(id: string, name: string) {
     const updated = parties.map((p) => p.id === id ? { ...p, name } : p);
     setParties(updated);
-    const party = updated.find((p) => p.id === id)!;
-    try { await saveParty(party); } catch { toast.error("Failed to rename"); }
+    try { await saveParty(updated.find((p) => p.id === id)!); }
+    catch { toast.error("Failed to rename"); }
   }
 
   async function setCommander(partyId: string, memberId: string) {
@@ -158,12 +154,27 @@ export default function PartyPage() {
         : p
     );
     setParties(updated);
-    const party = updated.find((p) => p.id === partyId)!;
     setSaving(partyId);
-    try {
-      await saveParty(party);
-      toast.success("Commander updated");
-    } catch { toast.error("Failed to save"); }
+    try { await saveParty(updated.find((p) => p.id === partyId)!); toast.success("Commander updated"); }
+    catch { toast.error("Failed to save"); }
+    finally { setSaving(null); }
+  }
+
+  // ── REMOVE MEMBER FROM PARTY ──
+  async function removeMemberFromParty(partyId: string, memberId: string) {
+    const updated = parties.map((p) =>
+      p.id === partyId
+        ? {
+            ...p,
+            member_ids: p.member_ids.filter((id) => id !== memberId),
+            commander_id: p.commander_id === memberId ? null : p.commander_id,
+          }
+        : p
+    );
+    setParties(updated);
+    setSaving(partyId);
+    try { await saveParty(updated.find((p) => p.id === partyId)!); toast.success("Member removed"); }
+    catch { toast.error("Failed to save"); }
     finally { setSaving(null); }
   }
 
@@ -182,35 +193,39 @@ export default function PartyPage() {
     if (!target) return;
     if (target.member_ids.includes(memberId)) return;
     if (target.member_ids.length >= PARTY_SIZE) {
-      toast.error(`Party is full (max ${PARTY_SIZE})`);
-      return;
+      toast.error(`Party is full (max ${PARTY_SIZE})`); return;
     }
 
     const updated = parties.map((p) => {
-      if (p.id === sourceId) {
-        return {
-          ...p,
+      if (p.id === sourceId)
+        return { ...p,
           member_ids: p.member_ids.filter((id) => id !== memberId),
           commander_id: p.commander_id === memberId ? null : p.commander_id,
         };
-      }
-      if (p.id === targetPartyId) {
+      if (p.id === targetPartyId)
         return { ...p, member_ids: [...p.member_ids, memberId] };
-      }
       return p;
     });
 
     setParties(updated);
+    // Optimistically update member role in local state
+    setMembers((prev) =>
+      prev.map((m) => m.id === memberId ? { ...m, role: target.roster_type } : m)
+    );
     setSaving(targetPartyId);
     try {
       const saves = [updated.find((p) => p.id === targetPartyId)!];
       if (sourceId !== "pool") saves.push(updated.find((p) => p.id === sourceId)!);
-      await Promise.all(saves.map(saveParty));
+      await Promise.all([
+        ...saves.map(saveParty),
+        syncMemberRole(memberId, target.roster_type),
+      ]);
+      toast.success(`Added & role set to ${target.roster_type}`);
     } catch { toast.error("Failed to save"); }
     finally { setSaving(null); }
 
-    dragMember.current  = null;
-    dragSource.current  = null;
+    dragMember.current = null;
+    dragSource.current = null;
   }
 
   async function onDropToPool(e: React.DragEvent) {
@@ -221,8 +236,7 @@ export default function PartyPage() {
 
     const updated = parties.map((p) =>
       p.id === sourceId
-        ? {
-            ...p,
+        ? { ...p,
             member_ids: p.member_ids.filter((id) => id !== memberId),
             commander_id: p.commander_id === memberId ? null : p.commander_id,
           }
@@ -245,22 +259,29 @@ export default function PartyPage() {
       p.id === partyId ? { ...p, member_ids: [], commander_id: null } : p
     );
     setParties(updated);
-    const party = updated.find((p) => p.id === partyId)!;
-    try { await saveParty(party); toast.success("Party cleared"); }
+    try { await saveParty(updated.find((p) => p.id === partyId)!); toast.success("Party cleared"); }
     catch { toast.error("Failed to clear"); }
   }
 
   // ── DERIVED ──
-  const tabParties   = parties.filter((p) => p.roster_type === tab);
-  const tabMembers   = members.filter((m) => m.role === tab || m.role === "Main" && tab === "Main" || m.role === "Sub" && tab === "Sub");
-  const rosterMembers = members.filter((m) => m.role === tab);
+  const tabParties = parties.filter((p) => p.roster_type === tab);
 
-  const assignedIds  = new Set(tabParties.flatMap((p) => p.member_ids));
-  const poolMembers  = rosterMembers.filter((m) => !assignedIds.has(m.id));
+  // All IDs assigned to ANY party across both tabs
+  const allAssignedIds = new Set(parties.flatMap((p) => p.member_ids));
+
+  // Pool = all members NOT assigned anywhere, filtered by class
+  const poolMembers = members
+    .filter((m) => !allAssignedIds.has(m.id))
+    .filter((m) => poolFilter === "All" || m.class === poolFilter);
 
   const totalWarnings = tabParties.reduce(
     (sum, p) => sum + getWarnings(p, members).length, 0
   );
+
+  // Classes present in pool (for filter dropdown)
+  const poolClasses = Array.from(
+    new Set(members.filter((m) => !allAssignedIds.has(m.id)).map((m) => m.class))
+  ).sort();
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", color: "#f8fafc" }}>
@@ -283,23 +304,21 @@ export default function PartyPage() {
           {/* ── TABS + SUMMARY ── */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
             {(["Main", "Sub"] as const).map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={tab === t ? activeTabBtn : inactiveTabBtn}>
+              <button key={t} onClick={() => setTab(t)}
+                style={tab === t ? activeTabBtn : inactiveTabBtn}>
                 {t === "Main" ? "⚔️" : "🛡️"} {t} Roster
               </button>
             ))}
-
             <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              {/* Summary pills */}
-              <Pill label="Parties"   value={tabParties.length}          color="#D4AF37" />
-              <Pill label="Assigned"  value={assignedIds.size}           color="#22c55e" />
-              <Pill label="Unassigned" value={poolMembers.length}        color="#94a3b8" />
-              <Pill label="Warnings"  value={totalWarnings}              color={totalWarnings > 0 ? "#ef4444" : "#22c55e"} />
-
+              <Pill label="Parties"    value={tabParties.length}  color="#D4AF37" />
+              <Pill label="Assigned"   value={tabParties.flatMap((p) => p.member_ids).length} color="#22c55e" />
+              <Pill label="Unassigned" value={members.filter((m) => !allAssignedIds.has(m.id)).length} color="#94a3b8" />
+              <Pill label="Warnings"   value={totalWarnings}      color={totalWarnings > 0 ? "#ef4444" : "#22c55e"} />
               <button onClick={addParty} style={addPartyBtn}>+ Add Party</button>
             </div>
           </div>
 
-          {/* ── MAIN LAYOUT: parties + pool ── */}
+          {/* ── MAIN LAYOUT ── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20, alignItems: "start" }}>
 
             {/* ── PARTIES GRID ── */}
@@ -332,7 +351,7 @@ export default function PartyPage() {
                       }}
                     >
                       {/* Party header */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                         <input
                           value={party.name}
                           onChange={(e) => renameParty(party.id, e.target.value)}
@@ -341,27 +360,26 @@ export default function PartyPage() {
                         <span style={{ fontSize: 12, color: isFull ? "#f59e0b" : "#94a3b8", flexShrink: 0 }}>
                           {partyMembers.length}/{PARTY_SIZE}
                         </span>
-                        <button onClick={() => clearParty(party.id)} style={clearBtn} title="Clear party">↺</button>
-                        <button onClick={() => deleteParty(party.id)} style={deleteBtn} title="Delete party">×</button>
+                        <button onClick={() => clearParty(party.id)} style={iconBtn} title="Clear party">↺</button>
+                        <button onClick={() => deleteParty(party.id)} style={iconBtnRed} title="Delete party">×</button>
                       </div>
 
                       {/* Commander row */}
                       <div style={{
-                        marginBottom: 10, padding: "8px 10px", borderRadius: 10,
+                        marginBottom: 10, padding: "7px 10px", borderRadius: 10,
                         background: "rgba(212,175,55,0.08)",
-                        border: "1px solid rgba(212,175,55,0.2)",
-                        fontSize: 12,
+                        border: "1px solid rgba(212,175,55,0.2)", fontSize: 12,
                       }}>
-                        <span style={{ color: "#f8e7b0", fontWeight: 700 }}>👑 Commander: </span>
+                        <span style={{ color: "#f8e7b0", fontWeight: 700 }}>👑 </span>
                         {commander
                           ? <span style={{ color: "#f8fafc" }}>{commander.ign} <span style={{ color: "#64748b" }}>({commander.class})</span></span>
-                          : <span style={{ color: "#64748b" }}>None — click a member's ★</span>
+                          : <span style={{ color: "#64748b" }}>None — click ★ on a member</span>
                         }
                       </div>
 
                       {/* Warnings */}
                       {warnings.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
                           {warnings.map((w) => (
                             <span key={w} style={warningBadge}>⚠ {w}</span>
                           ))}
@@ -371,7 +389,7 @@ export default function PartyPage() {
                       {/* Members */}
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {partyMembers.length === 0 ? (
-                          <div style={{ padding: 16, textAlign: "center", color: "#334155", fontSize: 13, borderRadius: 10, border: "1px dashed rgba(255,255,255,0.08)" }}>
+                          <div style={{ padding: 14, textAlign: "center", color: "#334155", fontSize: 13, borderRadius: 10, border: "1px dashed rgba(255,255,255,0.08)" }}>
                             Drop members here
                           </div>
                         ) : (
@@ -382,6 +400,7 @@ export default function PartyPage() {
                               isCommander={party.commander_id === m.id}
                               onDragStart={() => onDragStart(m.id, party.id)}
                               onSetCommander={() => setCommander(party.id, m.id)}
+                              onRemove={() => removeMemberFromParty(party.id, m.id)}
                             />
                           ))
                         )}
@@ -392,7 +411,7 @@ export default function PartyPage() {
                       </div>
 
                       {isSaving && (
-                        <div style={{ marginTop: 8, fontSize: 11, color: "#64748b", textAlign: "right" }}>saving…</div>
+                        <div style={{ marginTop: 6, fontSize: 11, color: "#64748b", textAlign: "right" }}>saving…</div>
                       )}
                     </div>
                   );
@@ -406,21 +425,42 @@ export default function PartyPage() {
               onDrop={onDropToPool}
               style={poolContainer}
             >
-              <div style={{ marginBottom: 12 }}>
+              {/* Pool header */}
+              <div style={{ marginBottom: 10 }}>
                 <div style={{ fontWeight: 700, color: "#f8e7b0", fontSize: 15, marginBottom: 2 }}>
                   🎒 Unassigned Pool
                 </div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>
-                  {poolMembers.length} member{poolMembers.length !== 1 ? "s" : ""} • {tab} roster
+                  {members.filter((m) => !allAssignedIds.has(m.id)).length} unassigned • all roles
                 </div>
               </div>
 
+              {/* Class filter */}
+              <select
+                value={poolFilter}
+                onChange={(e) => setPoolFilter(e.target.value)}
+                style={{
+                  width: "100%", padding: "8px 10px", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "#1e293b", color: "#f8fafc",
+                  fontSize: 13, marginBottom: 10, colorScheme: "dark",
+                }}
+              >
+                <option value="All" style={{ background: "#1e293b" }}>All Classes</option>
+                {poolClasses.map((c) => (
+                  <option key={c} value={c} style={{ background: "#1e293b" }}>{classIcon(c)} {c}</option>
+                ))}
+              </select>
+
+              {/* Pool members */}
               {poolMembers.length === 0 ? (
                 <div style={{ padding: 20, textAlign: "center", color: "#334155", fontSize: 13 }}>
-                  All members assigned 🎉
+                  {poolFilter !== "All"
+                    ? `No unassigned ${poolFilter}s`
+                    : "All members assigned 🎉"}
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "70vh", overflowY: "auto" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "68vh", overflowY: "auto" }}>
                   {poolMembers.map((m) => (
                     <MemberChip
                       key={m.id}
@@ -429,6 +469,7 @@ export default function PartyPage() {
                       onDragStart={() => onDragStart(m.id, "pool")}
                       onSetCommander={() => {}}
                       hideCommander
+                      showRole
                     />
                   ))}
                 </div>
@@ -443,13 +484,15 @@ export default function PartyPage() {
 
 // ── MEMBER CHIP ─────────────────────────────────────────
 function MemberChip({
-  member, isCommander, onDragStart, onSetCommander, hideCommander,
+  member, isCommander, onDragStart, onSetCommander, onRemove, hideCommander, showRole,
 }: {
   member: Member;
   isCommander: boolean;
   onDragStart: () => void;
   onSetCommander: () => void;
+  onRemove?: () => void;
   hideCommander?: boolean;
+  showRole?: boolean;
 }) {
   const color = classColor(member.class);
   return (
@@ -458,27 +501,38 @@ function MemberChip({
       onDragStart={onDragStart}
       style={{
         display: "flex", alignItems: "center", gap: 8,
-        padding: "8px 10px", borderRadius: 10, cursor: "grab",
+        padding: "7px 10px", borderRadius: 10, cursor: "grab",
         background: isCommander
           ? "linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06))"
           : "rgba(255,255,255,0.04)",
         border: isCommander
           ? "1px solid rgba(212,175,55,0.35)"
           : `1px solid ${color}28`,
-        transition: "all 0.15s ease",
         userSelect: "none",
       }}
     >
-      {/* Class icon */}
-      <span style={{ fontSize: 16, flexShrink: 0 }}>{classIcon(member.class)}</span>
+      <span style={{ fontSize: 15, flexShrink: 0 }}>{classIcon(member.class)}</span>
 
-      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {isCommander && <span style={{ color: "#f8e7b0", marginRight: 4 }}>👑</span>}
           {member.ign}
         </div>
-        <div style={{ fontSize: 11, color, marginTop: 1 }}>{member.class}</div>
+        <div style={{ fontSize: 11, marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ color }}>{member.class}</span>
+          {(showRole || member.role) && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 10,
+              background: member.role === "Main"
+                ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.15)",
+              border: member.role === "Main"
+                ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(96,165,250,0.3)",
+              color: member.role === "Main" ? "#f8e7b0" : "#60a5fa",
+            }}>
+              {member.role}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Commander toggle */}
@@ -488,13 +542,26 @@ function MemberChip({
           title={isCommander ? "Remove commander" : "Set as commander"}
           style={{
             background: "none", border: "none", cursor: "pointer",
-            fontSize: 14, opacity: isCommander ? 1 : 0.3,
-            padding: "2px 4px", borderRadius: 6, flexShrink: 0,
-            transition: "opacity 0.2s",
+            fontSize: 13, opacity: isCommander ? 1 : 0.25,
+            padding: "2px 3px", borderRadius: 4, flexShrink: 0,
+            color: "#f8e7b0", transition: "opacity 0.2s",
           }}
-        >
-          ★
-        </button>
+        >★</button>
+      )}
+
+      {/* Remove from party button */}
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          title="Remove from party"
+          style={{
+            width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+            border: "1px solid rgba(239,68,68,0.3)",
+            background: "rgba(239,68,68,0.10)", color: "#ef4444",
+            cursor: "pointer", fontSize: 13, lineHeight: 1,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >×</button>
       )}
     </div>
   );
@@ -533,41 +600,38 @@ const poolContainer: React.CSSProperties = {
 };
 
 const partyNameInput: React.CSSProperties = {
-  flex: 1, minWidth: 0,
-  background: "transparent", border: "none", outline: "none",
-  color: "#f8e7b0", fontWeight: 700, fontSize: 15,
-  padding: "2px 4px", borderRadius: 6,
-  cursor: "text",
+  flex: 1, minWidth: 0, background: "transparent",
+  border: "none", outline: "none", color: "#f8e7b0",
+  fontWeight: 700, fontSize: 15, padding: "2px 4px",
+  borderRadius: 6, cursor: "text",
 };
 
 const warningBadge: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700,
-  padding: "3px 8px", borderRadius: 20,
-  background: "rgba(239,68,68,0.12)",
-  border: "1px solid rgba(239,68,68,0.28)",
+  fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20,
+  background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.28)",
   color: "#fca5a5",
 };
 
 const emptySlot: React.CSSProperties = {
-  height: 38, borderRadius: 10,
+  height: 36, borderRadius: 10,
   border: "1px dashed rgba(255,255,255,0.06)",
   background: "rgba(255,255,255,0.01)",
 };
 
 const emptyState: React.CSSProperties = {
-  padding: 40, textAlign: "center",
-  color: "#334155", fontSize: 14,
+  padding: 40, textAlign: "center", color: "#334155", fontSize: 14,
   borderRadius: 20, border: "1px dashed rgba(255,255,255,0.08)",
 };
 
-const clearBtn: React.CSSProperties = {
-  width: 26, height: 26, borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)",
+const iconBtn: React.CSSProperties = {
+  width: 26, height: 26, borderRadius: 8,
+  border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(255,255,255,0.05)", color: "#94a3b8",
   cursor: "pointer", fontSize: 14, display: "flex",
   alignItems: "center", justifyContent: "center", flexShrink: 0,
 };
 
-const deleteBtn: React.CSSProperties = {
+const iconBtnRed: React.CSSProperties = {
   width: 26, height: 26, borderRadius: 8,
   border: "1px solid rgba(239,68,68,0.25)",
   background: "rgba(239,68,68,0.10)", color: "#ef4444",
