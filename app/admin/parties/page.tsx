@@ -19,6 +19,37 @@ type Party = {
   member_ids: string[];
 };
 
+type Event = { id: string; name: string; date: string };
+type Att   = { id: string; member_id: string; event_id: string; status: string };
+
+function statusColor(s: string) {
+  if (s === "Present") return "#22c55e";
+  if (s === "Late")    return "#f59e0b";
+  if (s === "Absent")  return "#ef4444";
+  return "#94a3b8";
+}
+
+function getStreak(memberId: string, events: Event[], attendance: Att[]): number {
+  let streak = 0;
+  for (const ev of events) {
+    const r = attendance.find((a) => a.member_id === memberId && a.event_id === ev.id);
+    if (r && (r.status === "Present" || r.status === "Late")) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function getMemberStats(memberId: string, events: Event[], attendance: Att[], n = 6) {
+  const history = events.slice(0, n).map((ev) => {
+    const r = attendance.find((a) => a.member_id === memberId && a.event_id === ev.id);
+    return { event: ev, status: r?.status ?? null };
+  });
+  const recorded = history.filter((h) => h.status !== null);
+  const attended  = recorded.filter((h) => h.status === "Present" || h.status === "Late").length;
+  const rate      = recorded.length === 0 ? 0 : Math.round((attended / recorded.length) * 100);
+  return { history, attended, total: recorded.length, rate };
+}
+
 const PARTY_SIZE = 5;
 
 const ALL_CLASSES = [
@@ -92,11 +123,13 @@ async function syncMemberRole(memberId: string, role: "Main" | "Sub") {
   if (error) throw error;
 }
 export default function PartyPage() {
-  const [members,  setMembers]  = useState<Member[]>([]);
-  const [parties,  setParties]  = useState<Party[]>([]);
-  const [tab,      setTab]      = useState<"Main" | "Sub">("Main");
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState<string | null>(null);
+  const [members,    setMembers]    = useState<Member[]>([]);
+  const [parties,    setParties]    = useState<Party[]>([]);
+  const [events,     setEvents]     = useState<Event[]>([]);
+  const [attendance, setAttendance] = useState<Att[]>([]);
+  const [tab,        setTab]        = useState<"Main" | "Sub">("Main");
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState<string | null>(null);
   const [poolFilter, setPoolFilter] = useState("All");
 
   const dragMember = useRef<string | null>(null);
@@ -106,12 +139,16 @@ export default function PartyPage() {
 
   async function fetchAll() {
     setLoading(true);
-    const [m, p] = await Promise.all([
+    const [m, p, e, a] = await Promise.all([
       supabase.from("members").select("*").order("ign"),
       supabase.from("parties").select("*").order("name"),
+      supabase.from("events").select("*").order("date", { ascending: false }),
+      supabase.from("attendance").select("*"),
     ]);
     setMembers(m.data || []);
     setParties(p.data || []);
+    setEvents(e.data || []);
+    setAttendance(a.data || []);
     setLoading(false);
   }
 
@@ -470,6 +507,8 @@ export default function PartyPage() {
                       onSetCommander={() => {}}
                       hideCommander
                       showRole
+                      events={events}
+                      attendance={attendance}
                     />
                   ))}
                 </div>
@@ -484,7 +523,8 @@ export default function PartyPage() {
 
 // ── MEMBER CHIP ─────────────────────────────────────────
 function MemberChip({
-  member, isCommander, onDragStart, onSetCommander, onRemove, hideCommander, showRole,
+  member, isCommander, onDragStart, onSetCommander, onRemove,
+  hideCommander, showRole, events = [], attendance = [],
 }: {
   member: Member;
   isCommander: boolean;
@@ -493,75 +533,160 @@ function MemberChip({
   onRemove?: () => void;
   hideCommander?: boolean;
   showRole?: boolean;
+  events?: Event[];
+  attendance?: Att[];
 }) {
+  const [hovered, setHovered] = useState(false);
   const color = classColor(member.class);
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      style={{
-        display: "flex", alignItems: "center", gap: 8,
-        padding: "7px 10px", borderRadius: 10, cursor: "grab",
-        background: isCommander
-          ? "linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06))"
-          : "rgba(255,255,255,0.04)",
-        border: isCommander
-          ? "1px solid rgba(212,175,55,0.35)"
-          : `1px solid ${color}28`,
-        userSelect: "none",
-      }}
-    >
-      <span style={{ fontSize: 15, flexShrink: 0 }}>{classIcon(member.class)}</span>
+  const showTooltip = hovered && events.length > 0;
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {isCommander && <span style={{ color: "#f8e7b0", marginRight: 4 }}>👑</span>}
-          {member.ign}
+  const streak = getStreak(member.id, events, attendance);
+  const stats  = getMemberStats(member.id, events, attendance, 6);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        draggable
+        onDragStart={onDragStart}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 10px", borderRadius: 10, cursor: "grab",
+          background: isCommander
+            ? "linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06))"
+            : "rgba(255,255,255,0.04)",
+          border: isCommander
+            ? "1px solid rgba(212,175,55,0.35)"
+            : `1px solid ${color}28`,
+          userSelect: "none",
+          transition: "background 0.15s",
+        }}
+      >
+        <span style={{ fontSize: 15, flexShrink: 0 }}>{classIcon(member.class)}</span>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {isCommander && <span style={{ color: "#f8e7b0", marginRight: 4 }}>👑</span>}
+            {streak >= 3 && <span style={{ marginRight: 4, fontSize: 11 }}>🔥</span>}
+            {member.ign}
+          </div>
+          <div style={{ fontSize: 11, marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ color }}>{member.class}</span>
+            {(showRole || member.role) && (
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 10,
+                background: member.role === "Main" ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.15)",
+                border: member.role === "Main" ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(96,165,250,0.3)",
+                color: member.role === "Main" ? "#f8e7b0" : "#60a5fa",
+              }}>
+                {member.role}
+              </span>
+            )}
+          </div>
         </div>
-        <div style={{ fontSize: 11, marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ color }}>{member.class}</span>
-          {(showRole || member.role) && (
-            <span style={{
-              fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 10,
-              background: member.role === "Main"
-                ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.15)",
-              border: member.role === "Main"
-                ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(96,165,250,0.3)",
-              color: member.role === "Main" ? "#f8e7b0" : "#60a5fa",
-            }}>
-              {member.role}
-            </span>
-          )}
-        </div>
+
+        {!hideCommander && (
+          <button onClick={onSetCommander}
+            title={isCommander ? "Remove commander" : "Set as commander"}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 13, opacity: isCommander ? 1 : 0.25,
+              padding: "2px 3px", borderRadius: 4, flexShrink: 0,
+              color: "#f8e7b0", transition: "opacity 0.2s",
+            }}
+          >★</button>
+        )}
+
+        {onRemove && (
+          <button onClick={onRemove} title="Remove from party"
+            style={{
+              width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+              border: "1px solid rgba(239,68,68,0.3)",
+              background: "rgba(239,68,68,0.10)", color: "#ef4444",
+              cursor: "pointer", fontSize: 13, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >×</button>
+        )}
       </div>
 
-      {/* Commander toggle */}
-      {!hideCommander && (
-        <button
-          onClick={onSetCommander}
-          title={isCommander ? "Remove commander" : "Set as commander"}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            fontSize: 13, opacity: isCommander ? 1 : 0.25,
-            padding: "2px 3px", borderRadius: 4, flexShrink: 0,
-            color: "#f8e7b0", transition: "opacity 0.2s",
-          }}
-        >★</button>
-      )}
+      {/* ── HOVER TOOLTIP ── */}
+      {showTooltip && (
+        <div style={{
+          position: "absolute", right: "calc(100% + 10px)", top: "50%",
+          transform: "translateY(-50%)",
+          width: 220, zIndex: 9999,
+          background: "#0f172a",
+          border: "1px solid rgba(212,175,55,0.25)",
+          borderRadius: 16, padding: 14,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
+          pointerEvents: "none",
+        }}>
+          {/* Arrow */}
+          <div style={{
+            position: "absolute", right: -6, top: "50%",
+            transform: "translateY(-50%)",
+            width: 10, height: 10,
+            background: "#0f172a",
+            border: "1px solid rgba(212,175,55,0.25)",
+            borderLeft: "none", borderBottom: "none",
+            rotate: "45deg",
+          }} />
 
-      {/* Remove from party button */}
-      {onRemove && (
-        <button
-          onClick={onRemove}
-          title="Remove from party"
-          style={{
-            width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-            border: "1px solid rgba(239,68,68,0.3)",
-            background: "rgba(239,68,68,0.10)", color: "#ef4444",
-            cursor: "pointer", fontSize: 13, lineHeight: 1,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >×</button>
+          {/* Header */}
+          <div style={{ fontWeight: 700, color: "#f8e7b0", fontSize: 13, marginBottom: 2 }}>
+            {member.ign}
+          </div>
+          <div style={{ fontSize: 11, color, marginBottom: 10 }}>{member.class}</div>
+
+          {/* Mini stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 12 }}>
+            {[
+              { label: "Streak", value: streak >= 3 ? `🔥${streak}` : `${streak}`, color: streak >= 3 ? "#f59e0b" : "#94a3b8" },
+              { label: "Attended", value: `${stats.attended}/${stats.total}`, color: "#22c55e" },
+              { label: "Rate", value: `${stats.rate}%`, color: "#D4AF37" },
+            ].map(({ label, value, color: c }) => (
+              <div key={label} style={{
+                textAlign: "center", padding: "6px 4px", borderRadius: 8,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: c }}>{value}</div>
+                <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* History dots */}
+          <div style={{ fontSize: 10, color: "#475569", marginBottom: 6, letterSpacing: 0.3 }}>
+            LAST {stats.history.length} EVENTS
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {stats.history.map(({ event, status }) => {
+              const sc = status ? statusColor(status) : "#1e293b";
+              return (
+                <div key={event.id} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "4px 8px", borderRadius: 7,
+                  background: status ? `${sc}10` : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${status ? `${sc}25` : "rgba(255,255,255,0.04)"}`,
+                }}>
+                  <span style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>
+                    {event.name}
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "1px 7px",
+                    borderRadius: 20, flexShrink: 0, marginLeft: 6,
+                    background: `${sc}18`, color: status ? sc : "#334155",
+                  }}>
+                    {status ?? "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
