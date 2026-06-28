@@ -537,11 +537,16 @@ function MemberChip({
   attendance?: Att[];
 }) {
   const [hovered, setHovered] = useState(false);
+  const [mouseY,  setMouseY]  = useState(0);
   const color = classColor(member.class);
   const showTooltip = hovered && events.length > 0;
 
   const streak = getStreak(member.id, events, attendance);
   const stats  = getMemberStats(member.id, events, attendance, 6);
+
+  function handleMouseMove(e: React.MouseEvent) {
+    setMouseY(e.clientY);
+  }
 
   return (
     <div style={{ position: "relative" }}>
@@ -550,6 +555,7 @@ function MemberChip({
         onDragStart={onDragStart}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onMouseMove={handleMouseMove}
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "7px 10px", borderRadius: 10, cursor: "grab",
@@ -614,26 +620,16 @@ function MemberChip({
       {/* ── HOVER TOOLTIP ── */}
       {showTooltip && (
         <div style={{
-          position: "absolute", right: "calc(100% + 10px)", top: "50%",
-          transform: "translateY(-50%)",
-          width: 220, zIndex: 9999,
+          position: "fixed",
+          right: 308,
+          top: Math.min(mouseY - 20, window.innerHeight - 380),
+          width: 230, zIndex: 9999,
           background: "#0f172a",
           border: "1px solid rgba(212,175,55,0.25)",
           borderRadius: 16, padding: 14,
           boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
           pointerEvents: "none",
         }}>
-          {/* Arrow */}
-          <div style={{
-            position: "absolute", right: -6, top: "50%",
-            transform: "translateY(-50%)",
-            width: 10, height: 10,
-            background: "#0f172a",
-            border: "1px solid rgba(212,175,55,0.25)",
-            borderLeft: "none", borderBottom: "none",
-            rotate: "45deg",
-          }} />
-
           {/* Header */}
           <div style={{ fontWeight: 700, color: "#f8e7b0", fontSize: 13, marginBottom: 2 }}>
             {member.ign}
