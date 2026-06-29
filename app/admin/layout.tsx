@@ -197,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             opacity: expanded ? 0.8 : 0.5,
             transition: "opacity 0.3s",
           }}>
-            {expanded ? "v2.0 • LUMIERE GMS" : "v2"}
+            {expanded ? "v2.1 • LUMIERE GMS" : "v2.1"}
           </div>
         </div>
       </aside>
