@@ -14,7 +14,7 @@ const EVENT_TYPES = [
 ];
 
 type Member = { id: string; ign: string; class: string; role: string };
-type Event  = { id: string; name: string; type: string; date: string };
+type Event  = { id: string; name: string; type: string; date: string; time?: string };
 type Att    = { id: string; member_id: string; event_id: string; status: string };
 
 function formatDate(raw: string) {
@@ -22,6 +22,21 @@ function formatDate(raw: string) {
   return new Date(raw).toLocaleDateString("en-US", {
     year: "numeric", month: "short", day: "numeric",
   });
+}
+
+function formatTimePH(time: string) {
+  if (!time) return "—";
+  const [h, m] = time.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${m.toString().padStart(2, "0")} ${ampm} PH Time`;
+}
+
+// Also show time in event selector
+function formatEventLabel(ev: Event) {
+  const date = formatDate(ev.date);
+  const time = ev.time ? ` • ${formatTimePH(ev.time)}` : "";
+  return `${ev.name} — ${date}${time}`;
 }
 
 function statusColor(s: string) {
@@ -64,6 +79,7 @@ export default function AttendancePage() {
   // Create event form
   const [eventType, setEventType] = useState("Guild League");
   const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("20:55"); // default 8:55 PM
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -83,16 +99,36 @@ export default function AttendancePage() {
 
   async function createEvent() {
     if (!eventDate) { toast.error("Please choose a date"); return; }
+    if (!eventTime) { toast.error("Please choose a time"); return; }
     const { data, error } = await supabase
       .from("events")
-      .insert([{ name: eventType, type: eventType, date: eventDate }])
+      .insert([{ name: eventType, type: eventType, date: eventDate, time: eventTime }])
       .select();
     if (error) { toast.error(error.message); return; }
     if (data) {
       setEvents([data[0], ...events]);
       setSelectedEvent(data[0].id);
       setEventDate("");
+      setEventTime("20:55");
       toast.success("Event created!");
+
+      // Post to Discord event-alerts channel
+      try {
+        const res = await fetch("/api/discord/event-announce", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data[0].name,
+            date: data[0].date,
+            time: data[0].time,
+            type: data[0].type,
+          }),
+        });
+        if (res.ok) toast.success("📣 Announced on Discord!");
+        else toast.error("Event created but Discord announcement failed");
+      } catch {
+        toast.error("Event created but Discord announcement failed");
+      }
     }
   }
 
@@ -213,6 +249,11 @@ export default function AttendancePage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontSize: 13, color: "#f8e7b0", fontWeight: 700 }}>
                   📊 {selectedEventObj?.name} — {formatDate(selectedEventObj?.date ?? "")}
+                  {selectedEventObj?.time && (
+                    <span style={{ color: "#94a3b8", fontWeight: 400, marginLeft: 6 }}>
+                      {formatTimePH(selectedEventObj.time)}
+                    </span>
+                  )}
                 </span>
                 <span style={{ fontSize: 12, color: "#64748b" }}>{totalMarked} marked</span>
               </div>
@@ -251,8 +292,19 @@ export default function AttendancePage() {
                 </select>
                 <input type="date" value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)} style={input} />
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <button onClick={createEvent} style={{ ...goldButton, width: "100%" }}>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    style={input}
+                  />
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                    PH Time (Asia/Manila) • {eventTime ? formatTimePH(eventTime) : "—"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-start" }}>
+                  <button onClick={createEvent} style={{ ...goldButton, width: "100%", marginTop: 0 }}>
                     + Create Event
                   </button>
                 </div>
@@ -282,7 +334,7 @@ export default function AttendancePage() {
               <select value={selectedEvent} onChange={(e) => setSelectedEvent(e.target.value)} style={input}>
                 {filteredEvents.map((ev) => (
                   <option key={ev.id} value={ev.id} style={{ background: "#1e293b", color: "#f8fafc" }}>
-                    {ev.name} — {formatDate(ev.date)}
+                    {formatEventLabel(ev)}
                   </option>
                 ))}
               </select>
