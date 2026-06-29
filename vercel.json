@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/discord/reminders",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-}
+{}
