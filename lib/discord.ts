@@ -124,16 +124,20 @@ export async function postPartyDeployment(parties: {
     };
   });
 
+  const description = rosterType === "Sub"
+    ? [
+        `Guild parties have been finalized! Get in position and coordinate with your party. 🏰`,
+        ``,
+        `📌 **Don't see your name?** You're free to create your own party or fill any open slot above. Unassigned members may also be pulled in as reserves for Main from time to time, so stay ready!`,
+      ].join("\n")
+    : `Guild parties have been finalized! Get in position and coordinate with your party. 🏰`;
+
   await sendWebhook("parties", {
     content: "@everyone",
     embeds: [
       {
         title: `⚔️ Party Assignments — ${rosterType} Roster`,
-        description: [
-          `Guild parties have been finalized! Get in position and coordinate with your party. 🏰`,
-          ``,
-          `📌 **Don't see your name?** You're free to create your own party or fill any open slot above. Unassigned members may also be pulled in as reserves for Main from time to time, so stay ready!`,
-        ].join("\n"),
+        description,
         color: 0xD4AF37,
         fields,
         footer: { text: "LUMIERE GMS • Party Organizer" },
