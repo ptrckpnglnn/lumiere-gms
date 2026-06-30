@@ -62,8 +62,6 @@ export async function postEventAnnouncement(event: {
           `⏰ **Time:** ${timeDisplay} PH Time`,
           `🏷️ **Type:** ${event.type}`,
           ``,
-          `📋 Please mark your attendance in <#1521106376955531374>`,
-          ``,
           `*Get ready, guild members! 🏰*`,
         ].join("\n"),
         color: 0xD4AF37,
@@ -93,8 +91,6 @@ export async function postEventReminder(event: {
           ``,
           `⏰ **Time:** ${timeDisplay} PH Time`,
           `🏷️ **Type:** ${event.type}`,
-          ``,
-          `📋 Mark your attendance in <#1521106376955531374>`,
           ``,
           `*Prepare your gear and get in position! ⚔️*`,
         ].join("\n"),
@@ -133,7 +129,11 @@ export async function postPartyDeployment(parties: {
     embeds: [
       {
         title: `⚔️ Party Assignments — ${rosterType} Roster`,
-        description: `Guild parties have been finalized!\nGet in position and coordinate with your party. 🏰`,
+        description: [
+          `Guild parties have been finalized! Get in position and coordinate with your party. 🏰`,
+          ``,
+          `📌 **Don't see your name?** You're free to create your own party or fill any open slot above. Unassigned members may also be pulled in as reserves for Main from time to time, so stay ready!`,
+        ].join("\n"),
         color: 0xD4AF37,
         fields,
         footer: { text: "LUMIERE GMS • Party Organizer" },

@@ -200,8 +200,11 @@ export default function AdminDashboard() {
     } catch { toast.error("Failed to send alerts"); }
   }
 
-  // ── DERIVED ──
-  const recentEvents = events.slice(0, 3);
+  // Only count events that have already happened (date <= today)
+  const today = new Date().toISOString().split("T")[0];
+  const pastEvents = events.filter((ev) => ev.date <= today);
+
+  const recentEvents = pastEvents.slice(0, 3);
 
   const eventSummaries = recentEvents.map((ev) => ({
     ...ev,
@@ -211,7 +214,7 @@ export default function AdminDashboard() {
   }));
 
   const membersWithHealth = members.map((m) => ({
-    ...m, health: getMemberHealth(m, events, attendance),
+    ...m, health: getMemberHealth(m, pastEvents, attendance),
   }));
 
   const newMembers      = [...membersWithHealth.filter((m) => m.health === "new")]
@@ -220,7 +223,7 @@ export default function AdminDashboard() {
   const inactiveMembers = membersWithHealth.filter((m) => m.health === "inactive");
   const activeMembers   = membersWithHealth.filter((m) => m.health === "active");
 
-  const latest3 = events.slice(0, 3);
+  const latest3 = pastEvents.slice(0, 3);
   const totalPossible = latest3.length * members.length;
   const actualPresent = latest3.reduce((sum, ev) =>
     sum + attendance.filter(

@@ -293,6 +293,9 @@ export default function PartyPage() {
   }
 
   // ── DERIVED ──
+  const today = new Date().toISOString().split("T")[0];
+  const pastEvents = events.filter((ev) => ev.date <= today);
+
   const tabParties     = parties.filter((p) => p.roster_type === tab);
   const allAssignedIds = new Set(parties.flatMap((p) => p.member_ids));
   const poolClasses    = Array.from(new Set(members.filter((m) => !allAssignedIds.has(m.id)).map((m) => m.class))).sort();
@@ -392,7 +395,7 @@ export default function PartyPage() {
                               onDragStart={() => onDragStart(m.id, party.id)}
                               onSetCommander={() => setCommander(party.id, m.id)}
                               onRemove={() => removeMemberFromParty(party.id, m.id)}
-                              events={events} attendance={attendance}
+                              events={pastEvents} attendance={attendance}
                             />
                           ))
                         }
@@ -436,7 +439,7 @@ export default function PartyPage() {
                         key={m.id} member={m} isCommander={false}
                         onDragStart={() => onDragStart(m.id, "pool")}
                         onSetCommander={() => {}} hideCommander showRole
-                        events={events} attendance={attendance}
+                        events={pastEvents} attendance={attendance}
                       />
                     ))}
                   </div>

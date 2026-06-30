@@ -144,10 +144,13 @@ export default function MembersPage() {
     fetchAll();
   }
 
-  // Compute health for every member
+  // Compute health for every member — only count events that have already happened
+  const today = new Date().toISOString().split("T")[0];
+  const pastEvents = events.filter((ev) => ev.date <= today);
+
   const membersWithHealth = members.map((m) => ({
     ...m,
-    health: getMemberHealth(m, events, attendance),
+    health: getMemberHealth(m, pastEvents, attendance),
   }));
 
   const filteredMembers = membersWithHealth.filter((m) => {
