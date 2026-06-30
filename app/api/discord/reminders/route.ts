@@ -12,7 +12,6 @@ const supabase = createClient(
 );
 
 export async function GET(req: Request) {
-    export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
 
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
