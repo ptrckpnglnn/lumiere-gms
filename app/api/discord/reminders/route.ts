@@ -11,7 +11,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // needs service role to update reminder_sent
 );
 
-export async function GET() {
+export async function GET(req: Request) {
+    export async function GET(req: Request) {
+  const authHeader = req.headers.get("authorization");
+
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   try {
     const now = new Date();
 
