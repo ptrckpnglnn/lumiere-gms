@@ -115,12 +115,12 @@ export async function postPartyDeployment(parties: {
 
   const fields = parties.map((party) => {
     const memberList = party.members
-      .map((m) => `• **${m.ign}** — ${m.class}`)
+      .map((m) => `${m.ign} — ${m.class}`)
       .join("\n");
     return {
-      name: `${party.commander ? "👑 " : "⚔️ "}${party.name}${party.commander ? ` — Commander: ${party.commander}` : ""}`,
-      value: memberList || "*No members assigned*",
-      inline: false,
+      name: `${party.commander ? "👑" : "⚔️"} ${party.name}${party.commander ? `\nCmdr: ${party.commander}` : ""}`,
+      value: memberList || "*Empty*",
+      inline: true, // side-by-side, 2-3 per row depending on Discord width
     };
   });
 
