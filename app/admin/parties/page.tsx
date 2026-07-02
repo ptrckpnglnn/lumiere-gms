@@ -307,7 +307,7 @@ export default function PartyPage() {
     <div style={{ maxWidth: 1400, margin: "0 auto", color: "#f8fafc" }}>
 
       {/* HEADER */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 24, paddingRight: 316 }}>
         <h1 style={{ margin: 0, fontSize: 32, color: "#f8e7b0", fontWeight: 800 }}>⚔️ Party Organizer</h1>
         <p style={{ marginTop: 6, color: "#94a3b8", fontSize: 14 }}>Build and manage party compositions for guild events.</p>
         <div style={{ marginTop: 16, height: 1, background: "linear-gradient(90deg, rgba(212,175,55,0.45), transparent)" }} />
@@ -316,7 +316,7 @@ export default function PartyPage() {
       {loading ? <p style={{ color: "#94a3b8" }}>Loading...</p> : (
         <>
           {/* TABS + SUMMARY */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap", paddingRight: 316 }}>
             {(["Main", "Sub"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)} style={tab === t ? activeTabBtn : inactiveTabBtn}>
                 {t === "Main" ? "⚔️" : "🛡️"} {t} Roster
