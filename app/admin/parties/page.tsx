@@ -340,8 +340,8 @@ export default function PartyPage() {
             </div>
           </div>
 
-          {/* MAIN LAYOUT */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20, alignItems: "start" }}>
+          {/* MAIN LAYOUT — pool is fixed, so we just pad right to avoid overlap */}
+          <div style={{ paddingRight: 316 }}>
 
             {/* TEAMS GRID */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
@@ -410,42 +410,42 @@ export default function PartyPage() {
                 })
               }
             </div>
+          </div>
 
-            {/* spacer matching pool width so parties grid doesn't run underneath it */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={onDropToPool}
-              style={poolContainer}
-            >
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, color: "#f8e7b0", fontSize: 15, marginBottom: 2 }}>🎒 Unassigned Pool</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{members.filter((m) => !allAssignedIds.has(m.id)).length} unassigned • all roles</div>
-              </div>
-
-              <select
-                value={poolFilter} onChange={(e) => setPoolFilter(e.target.value)}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "#1e293b", color: "#f8fafc", fontSize: 13, marginBottom: 10, colorScheme: "dark", flexShrink: 0 }}
-              >
-                <option value="All" style={{ background: "#1e293b" }}>All Classes</option>
-                {poolClasses.map((c) => <option key={c} value={c} style={{ background: "#1e293b" }}>{classIcon(c)} {c}</option>)}
-              </select>
-
-              {poolMembers.length === 0
-                ? <div style={{ padding: 20, textAlign: "center", color: "#334155", fontSize: 13 }}>
-                    {poolFilter !== "All" ? `No unassigned ${poolFilter}s` : "All members assigned 🎉"}
-                  </div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1, minHeight: 0 }}>
-                    {poolMembers.map((m) => (
-                      <MemberChip
-                        key={m.id} member={m} isCommander={false}
-                        onDragStart={() => onDragStart(m.id, "pool")}
-                        onSetCommander={() => {}} hideCommander showRole
-                        events={pastEvents} attendance={attendance}
-                      />
-                    ))}
-                  </div>
-              }
+          {/* FIXED POOL — always visible on right side */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={onDropToPool}
+            style={poolContainer}
+          >
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 700, color: "#f8e7b0", fontSize: 15, marginBottom: 2 }}>🎒 Unassigned Pool</div>
+              <div style={{ fontSize: 12, color: "#64748b" }}>{members.filter((m) => !allAssignedIds.has(m.id)).length} unassigned • all roles</div>
             </div>
+
+            <select
+              value={poolFilter} onChange={(e) => setPoolFilter(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "#1e293b", color: "#f8fafc", fontSize: 13, marginBottom: 10, colorScheme: "dark", flexShrink: 0 }}
+            >
+              <option value="All" style={{ background: "#1e293b" }}>All Classes</option>
+              {poolClasses.map((c) => <option key={c} value={c} style={{ background: "#1e293b" }}>{classIcon(c)} {c}</option>)}
+            </select>
+
+            {poolMembers.length === 0
+              ? <div style={{ padding: 20, textAlign: "center", color: "#334155", fontSize: 13 }}>
+                  {poolFilter !== "All" ? `No unassigned ${poolFilter}s` : "All members assigned 🎉"}
+                </div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1, minHeight: 0 }}>
+                  {poolMembers.map((m) => (
+                    <MemberChip
+                      key={m.id} member={m} isCommander={false}
+                      onDragStart={() => onDragStart(m.id, "pool")}
+                      onSetCommander={() => {}} hideCommander showRole
+                      events={pastEvents} attendance={attendance}
+                    />
+                  ))}
+                </div>
+            }
           </div>
         </>
       )}
@@ -585,8 +585,8 @@ const partyCard: React.CSSProperties = {
 const poolContainer: React.CSSProperties = {
   position: "fixed",
   top: 24,
-  right: 24,
-  width: 280,
+  right: 28,
+  width: 272,
   padding: 16, borderRadius: 20,
   background: "#0c1322",
   border: "1px solid rgba(212,175,55,0.25)",
