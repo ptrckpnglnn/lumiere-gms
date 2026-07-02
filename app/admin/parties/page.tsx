@@ -17,10 +17,11 @@ const ALL_CLASSES = [
 ];
 
 // ── CLASS ROLES (fixed) ──
+// Lord Knight = DPS (not tank)
 // Paladin = Tank AND DPS
 // Gypsy/Minstrel = Healer AND Support
-const TANK_CLASSES    = ["Lord Knight", "Paladin", "Champion"];
-const DPS_CLASSES     = ["High Wizard", "Sniper", "Biochemist", "Assassin Cross", "Stalker", "Mastersmith", "Summoner", "Paladin"];
+const TANK_CLASSES    = ["Paladin", "Champion"];
+const DPS_CLASSES     = ["Lord Knight", "High Wizard", "Sniper", "Biochemist", "Assassin Cross", "Stalker", "Mastersmith", "Summoner", "Paladin"];
 const HEALER_CLASSES  = ["High Priest", "Gypsy", "Minstrel"];
 const SUPPORT_CLASSES = ["High Priest", "Professor", "Minstrel", "Gypsy"];
 
@@ -71,7 +72,7 @@ function classColor(cls: string): string {
   if (["High Priest", "Gypsy", "Minstrel"].includes(cls)) return "#34d399";
   if (["Professor"].includes(cls))                         return "#a78bfa";
   if (TANK_CLASSES.includes(cls))                          return "#60a5fa";
-  if (["High Wizard","Sniper","Biochemist","Assassin Cross","Stalker","Mastersmith","Summoner"].includes(cls)) return "#fbbf24";
+  if (DPS_CLASSES.includes(cls)) return "#fbbf24";
   return "#94a3b8";
 }
 
@@ -410,7 +411,7 @@ export default function PartyPage() {
               }
             </div>
 
-            {/* UNASSIGNED POOL — sticky */}
+            {/* spacer matching pool width so parties grid doesn't run underneath it */}
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDropToPool}
@@ -423,7 +424,7 @@ export default function PartyPage() {
 
               <select
                 value={poolFilter} onChange={(e) => setPoolFilter(e.target.value)}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "#1e293b", color: "#f8fafc", fontSize: 13, marginBottom: 10, colorScheme: "dark" }}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "#1e293b", color: "#f8fafc", fontSize: 13, marginBottom: 10, colorScheme: "dark", flexShrink: 0 }}
               >
                 <option value="All" style={{ background: "#1e293b" }}>All Classes</option>
                 {poolClasses.map((c) => <option key={c} value={c} style={{ background: "#1e293b" }}>{classIcon(c)} {c}</option>)}
@@ -433,7 +434,7 @@ export default function PartyPage() {
                 ? <div style={{ padding: 20, textAlign: "center", color: "#334155", fontSize: 13 }}>
                     {poolFilter !== "All" ? `No unassigned ${poolFilter}s` : "All members assigned 🎉"}
                   </div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "calc(100vh - 280px)", overflowY: "auto" }}>
+                : <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1, minHeight: 0 }}>
                     {poolMembers.map((m) => (
                       <MemberChip
                         key={m.id} member={m} isCommander={false}
@@ -582,13 +583,17 @@ const partyCard: React.CSSProperties = {
 };
 
 const poolContainer: React.CSSProperties = {
-  position: "sticky", top: 24,
+  position: "fixed",
+  top: 24,
+  right: 24,
+  width: 280,
   padding: 16, borderRadius: 20,
-  background: "linear-gradient(135deg, rgba(212,175,55,0.08), rgba(255,255,255,0.03))",
-  border: "1px solid rgba(212,175,55,0.16)",
-  boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
-  maxHeight: "calc(100vh - 140px)",
+  background: "#0c1322",
+  border: "1px solid rgba(212,175,55,0.25)",
+  boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+  maxHeight: "calc(100vh - 48px)",
   display: "flex", flexDirection: "column",
+  zIndex: 100,
 };
 
 const partyNameInput: React.CSSProperties = {

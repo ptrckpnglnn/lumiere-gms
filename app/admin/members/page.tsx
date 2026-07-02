@@ -86,6 +86,7 @@ export default function MembersPage() {
   const [form, setForm] = useState<Member>({
     ign: "", class: "", role: "Main",
   });
+  const [showAddMember, setShowAddMember] = useState(false);
 
   async function fetchAll() {
     setLoading(true);
@@ -113,6 +114,7 @@ export default function MembersPage() {
     }]);
     if (error) { toast.error("Failed to add member"); return; }
     toast.success("Member added!");
+    setShowAddMember(false);
     setForm({ ign: "", class: "", role: "Main" });
     fetchAll();
   }
@@ -180,12 +182,17 @@ export default function MembersPage() {
 
       {/* HEADER */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 32, color: "#f8e7b0", fontWeight: 800 }}>
-          👥 Members Command Center
-        </h1>
-        <p style={{ marginTop: 6, color: "#94a3b8", fontSize: 14 }}>
-          Manage guild roster, roles, and member health.
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 32, color: "#f8e7b0", fontWeight: 800 }}>
+              👥 Members Command Center
+            </h1>
+            <p style={{ marginTop: 6, color: "#94a3b8", fontSize: 14 }}>
+              Manage guild roster, roles, and member health.
+            </p>
+          </div>
+          <button onClick={() => setShowAddMember(true)} style={goldButton}>+ Add Member</button>
+        </div>
         <div style={{ marginTop: 16, height: 1, background: "linear-gradient(90deg, rgba(212,175,55,0.45), transparent)" }} />
       </div>
 
@@ -213,25 +220,21 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* FILTER BAR */}
-      <div style={glassCard}>
-        <h3 style={sectionTitle}>🔎 Filters</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 12 }}>
+      {/* FILTER BAR — single row */}
+      <div style={{ ...glassCard, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr auto", gap: 10 }}>
           <input
             placeholder="Search IGN..."
             value={filters.ign}
             onChange={(e) => setFilters({ ...filters, ign: e.target.value })}
             style={input}
           />
-          <button onClick={clearFilters} style={clearBtn}>Clear</button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           <select value={filters.class} onChange={(e) => setFilters({ ...filters, class: e.target.value })} style={input}>
             <option style={optStyle}>All Classes</option>
             {classes.map((c) => <option key={c} style={optStyle}>{c}</option>)}
           </select>
           <select value={filters.role} onChange={(e) => setFilters({ ...filters, role: e.target.value })} style={input}>
-            <option style={optStyle}>All</option>
+            <option style={optStyle}>All Roles</option>
             {roles.map((r) => <option key={r} style={optStyle}>{r}</option>)}
           </select>
           <select value={filters.health} onChange={(e) => setFilters({ ...filters, health: e.target.value })} style={input}>
@@ -241,29 +244,7 @@ export default function MembersPage() {
             <option value="inactive" style={optStyle}>Inactive</option>
             <option value="new"      style={optStyle}>New</option>
           </select>
-        </div>
-      </div>
-
-      {/* ADD MEMBER */}
-      <div style={glassCard}>
-        <h3 style={sectionTitle}>➕ Add Member</h3>
-        <div style={{ marginBottom: 12 }}>
-          <input
-            placeholder="In-Game Name (IGN)"
-            value={form.ign}
-            onChange={(e) => setForm({ ...form, ign: e.target.value })}
-            style={{ ...input, width: "100%" }}
-          />
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
-          <select value={form.class} onChange={(e) => setForm({ ...form, class: e.target.value })} style={input}>
-            <option value="" style={optStyle}>Select Class</option>
-            {classes.map((c) => <option key={c} style={optStyle}>{c}</option>)}
-          </select>
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} style={input}>
-            {roles.map((r) => <option key={r} style={optStyle}>{r}</option>)}
-          </select>
-          <button onClick={addMember} style={goldButton}>Add</button>
+          <button onClick={clearFilters} style={clearBtn}>Clear</button>
         </div>
       </div>
 
@@ -371,6 +352,44 @@ export default function MembersPage() {
           </button>
         </div>
       </div>
+
+      {/* ADD MEMBER MODAL */}
+      {showAddMember && (
+        <div style={overlay} onClick={() => setShowAddMember(false)}>
+          <div style={modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ margin: 0, color: "#f8e7b0", fontSize: 20, marginBottom: 20 }}>➕ Add Member</h2>
+
+            <label style={fieldLabel}>In-Game Name</label>
+            <input
+              placeholder="IGN"
+              value={form.ign}
+              onChange={(e) => setForm({ ...form, ign: e.target.value })}
+              style={{ ...input, width: "100%", marginBottom: 14 }}
+            />
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+              <div>
+                <label style={fieldLabel}>Class</label>
+                <select value={form.class} onChange={(e) => setForm({ ...form, class: e.target.value })} style={input}>
+                  <option value="" style={optStyle}>Select Class</option>
+                  {classes.map((c) => <option key={c} style={optStyle}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={fieldLabel}>Role</label>
+                <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} style={input}>
+                  {roles.map((r) => <option key={r} style={optStyle}>{r}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowAddMember(false)} style={cancelBtn}>Cancel</button>
+              <button onClick={addMember} style={goldButton}>Add Member</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -474,4 +493,28 @@ const pageBtn: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.06)", color: "#f8fafc",
   cursor: "pointer", fontSize: 13,
+};
+
+const overlay: React.CSSProperties = {
+  position: "fixed", inset: 0,
+  background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
+  display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+};
+
+const modal: React.CSSProperties = {
+  background: "linear-gradient(135deg, #0f172a, #1e293b)",
+  border: "1px solid rgba(212,175,55,0.25)",
+  borderRadius: 24, padding: 32, maxWidth: 460, width: "90%",
+  boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+};
+
+const fieldLabel: React.CSSProperties = {
+  fontSize: 12, color: "#94a3b8", marginBottom: 6, display: "block",
+};
+
+const cancelBtn: React.CSSProperties = {
+  padding: "11px 20px", borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.06)", color: "#f8fafc",
+  cursor: "pointer", fontWeight: 600, fontSize: 14,
 };

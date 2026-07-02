@@ -7,6 +7,7 @@ import { Toaster } from "react-hot-toast";
 const NAV = [
   { href: "/admin",            icon: "📊", label: "Dashboard"       },
   { href: "/admin/members",    icon: "👥", label: "Members"         },
+  { href: "/admin/events",     icon: "🗓", label: "Events"           },
   { href: "/admin/attendance", icon: "📅", label: "Attendance"      },
   { href: "/admin/parties",    icon: "⚔️", label: "Party Organizer" },
 ];
@@ -197,7 +198,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             opacity: expanded ? 0.8 : 0.5,
             transition: "opacity 0.3s",
           }}>
-            {expanded ? "v2.1 • LUMIERE GMS" : "v2.1"}
+            {expanded ? "v2.0 • LUMIERE GMS" : "v2"}
           </div>
         </div>
       </aside>
