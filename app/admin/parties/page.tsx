@@ -13,7 +13,7 @@ const PARTY_SIZE = 5;
 const ALL_CLASSES = [
   "Lord Knight","Paladin","High Wizard","Professor","Sniper",
   "Minstrel","Gypsy","High Priest","Champion","Mastersmith",
-  "Biochemist","Assassin Cross","Stalker","Summoner",
+  "Biochemist","Assassin Cross","Stalker","Summoner","Rebellion"
 ];
 
 // ── CLASS ROLES (fixed) ──
@@ -21,7 +21,7 @@ const ALL_CLASSES = [
 // Paladin = Tank AND DPS
 // Gypsy/Minstrel = Healer AND Support
 const TANK_CLASSES    = ["Paladin", "Champion"];
-const DPS_CLASSES     = ["Lord Knight", "High Wizard", "Sniper", "Biochemist", "Assassin Cross", "Stalker", "Mastersmith", "Summoner", "Paladin"];
+const DPS_CLASSES     = ["Lord Knight", "Rebellion" , "High Wizard", "Sniper", "Biochemist", "Assassin Cross", "Stalker", "Mastersmith", "Summoner", "Paladin"];
 const HEALER_CLASSES  = ["High Priest", "Gypsy", "Minstrel"];
 const SUPPORT_CLASSES = ["High Priest", "Professor", "Minstrel", "Gypsy"];
 
@@ -81,7 +81,7 @@ function classIcon(cls: string): string {
     "Lord Knight":"⚔️","Paladin":"🛡️","High Wizard":"🔮","Professor":"📖",
     "Sniper":"🏹","Minstrel":"🎵","Gypsy":"🎶","High Priest":"✨",
     "Champion":"👊","Mastersmith":"🔨","Biochemist":"⚗️","Assassin Cross":"🗡️",
-    "Stalker":"🌑","Summoner":"🐾",
+    "Stalker":"🌑","Summoner":"🐾", "Rebellion":"🔫"
   };
   return map[cls] || "⚔️";
 }
