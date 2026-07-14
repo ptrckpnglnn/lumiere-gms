@@ -68,7 +68,7 @@ function healthLabel(h: string) {
 const classes = [
   "Lord Knight", "Paladin", "High Wizard", "Professor", "Sniper",
   "Minstrel", "Gypsy", "High Priest", "Champion", "Mastersmith",
-  "Biochemist", "Assassin Cross", "Stalker", "Summoner",
+  "Biochemist", "Assassin Cross", "Stalker", "Summoner", "Rebellion"
 ];
 const roles = ["Main", "Sub", "Support", "Reserve"];
 
